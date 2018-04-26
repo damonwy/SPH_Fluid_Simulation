@@ -19,6 +19,7 @@
 #include "Particle.h"
 #include "Program.h"
 #include "Texture.h"
+#include "sph.h"
 using namespace std;
 
 GLFWwindow *window; // Main application window
@@ -29,9 +30,8 @@ shared_ptr<Program> prog;
 shared_ptr<Program> progSimple;
 shared_ptr<Program> prog_2;
 shared_ptr<Texture> texture0;
+shared_ptr<SPH> sph_demo;
 vector< shared_ptr< Particle> > particles;
-vector< shared_ptr< Particle> > goals;
-vector< shared_ptr< Particle> > particles2;
 
 Eigen::Vector3f grav;
 float t, h;
@@ -125,32 +125,44 @@ static void init()
 	prog->addUniform("texture0");
 	
 	camera = make_shared<Camera>();
-	camera->setInitDistance(5.0f);
+	camera->setInitDistance(100.0f);
 	
 	texture0 = make_shared<Texture>();
-	texture0->setFilename(RESOURCE_DIR + "star.jpg");
+	texture0->setFilename(RESOURCE_DIR + "alpha.jpg");
 	texture0->init();
 	texture0->setUnit(0);
 	texture0->setWrapModes(GL_REPEAT, GL_REPEAT);
 	
-	int n = 100;
-	Particle::init(n);
-	for(int i = 0; i < n; ++i) {
-		auto p = make_shared<Particle>(i);
-		particles.push_back(p);
-		p->rebirth(1, 0.0f, keyToggles);
-	}
+	//int n = 1000;
+	//Particle::init(n);
+	//for(int i = 0; i < n; ++i) {
+	//	auto p = make_shared<Particle>(i);
+	//	particles.push_back(p);
+	//	p->rebirth(1, 0.0f, keyToggles);
+	//}
+	
+	double num_particles = 6000;
+	float init_x = 0.0f;
+	float init_y = 10.0f;
+	float h = 0.3f;
+	float eps = 0.0008f;
+	float vis = 100.0f;
+	float base_density = 1.0f;
+	float power = 3.0f;
+	float base_pressure = 5.0f;
+	float dt = 0.1f;
 
-	int n_goals = 1;
-	for (int i = 0; i < n_goals; ++i) {
-		auto t = make_shared<Particle>(i);
-		goals.push_back(t);
-		t->rebirth(2, 0.0f, keyToggles);
-	}
+	Eigen::Vector3f window_llc, window_urc;
+	window_llc << 0.0f, 0.0f, 0.0f;
+	window_urc << 15.0f, 15.0f, 15.0f;
 
-	grav << 0.0f, -0.2f, 0.0f;
+	sph_demo = make_shared<SPH>(num_particles, init_x, init_y, h, eps, vis, base_density, base_pressure, power, dt, keyToggles);
+	sph_demo->LLC = window_llc;
+	sph_demo->URC = window_urc;
+
+	//grav << 0.0f, -0.2f, 0.0f;
 	t = 0.0f;
-	h = 0.2f;
+	//h = 0.1f;
 	
 	GLSL::checkError(GET_FILE_LINE);
 }
@@ -232,7 +244,7 @@ static void render()
 	glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
 	glUniformMatrix4fv(prog->getUniform("MV"), 1, GL_FALSE, glm::value_ptr(MV->topMatrix()));
 	glUniform2f(prog->getUniform("screenSize"), (float)width, (float)height);
-	Particle::draw(particles, prog);
+	Particle::draw(sph_demo->particles, prog);
 	texture0->unbind();
 	prog->unbind();
 
@@ -247,20 +259,43 @@ static void render()
 
 void stepParticles()
 {	
+	if (keyToggles[(unsigned)'d']) {
+		sph_demo->den_bar *= 0.9;
+		cout << "decrease base density to: " << sph_demo->den_bar << endl;
+	}
+
+	if (keyToggles[(unsigned)'D']) {
+		sph_demo->den_bar *= 1.0 / 0.9;
+		cout << "increase base density to: " << sph_demo->den_bar << endl;
+	}
+
+	if (keyToggles[(unsigned)'h']) {
+		sph_demo->h *= 0.9;
+		cout << "decrease base density to: " << sph_demo->h << endl;
+	}
+
+	if (keyToggles[(unsigned)'H']) {
+		sph_demo->h *= 1.0 / 0.9;
+		cout << "increase base density to: " << sph_demo->h << endl;
+	}
+
+	if (keyToggles[(unsigned)'w']) {
+		sph_demo->wallsticky *= 0.9;
+		cout << "decrease wallsticky to: " << sph_demo->wallsticky << endl;
+	}
+
+	if (keyToggles[(unsigned)'W']) {
+		sph_demo->wallsticky *= 1.0 / 0.9;
+		cout << "increase wallsticky to: " << sph_demo->wallsticky << endl;
+	}
+
 	if(keyToggles[(unsigned)' ']) {
 		// This can be parallelized!
-		Eigen::Vector3f goal01(0.6f + 0.6*cos(t), 0.0f + 0.6*sin(t), 0.0f);
-		Particle::findNeighbors(particles);
-		//Particle::seekGoal(goal01, particles);
-		//Particle::centering(particles);
-		//Particle::matchVelocity(particles);
-		//Particle::avoidCollision(particles);
-		Particle::updateDensity(particles);
-		Particle::updateSPHForces(particles);
-		goals[0]->step(t, h, grav, keyToggles);
-		for(int i = 0; i < (int)particles.size(); ++i) {
-			particles[i]->step(t, h, grav, keyToggles);
-		}
+		sph_demo->updateFluid();
+
+		/*for(int i = 0; i < (int)sph_particles.size(); ++i) {
+			sph_demo->particles[i]->step(t, h, grav, keyToggles);
+		}*/
 		t += h;
 	}
 }
@@ -280,7 +315,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	// Create a windowed mode window and its OpenGL context.
-	window = glfwCreateWindow(640, 480, "YOUR NAME", NULL, NULL);
+	window = glfwCreateWindow(640, 480, "YING WANG", NULL, NULL);
 	if(!window) {
 		glfwTerminate();
 		return -1;

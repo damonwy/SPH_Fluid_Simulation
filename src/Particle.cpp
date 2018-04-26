@@ -14,7 +14,7 @@ vector<float> Particle::posBuf;
 vector<float> Particle::colBuf;
 vector<float> Particle::alpBuf;
 vector<float> Particle::scaBuf;
-vector<int> Particle::neighbourList;
+//vector<int> Particle::neighbourList;
 
 GLuint Particle::posBufID;
 GLuint Particle::colBufID;
@@ -76,23 +76,15 @@ Particle::Particle(int index) :
 	alpha(alpBuf[index])
 {
 	idx = index;
-
 	// Random fixed properties
 	color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
-	scale = randFloat(0.2f, 0.3f);
+	//scale = randFloat(0.2f, 0.3f);
+	scale = 0.3f;
 	lifespan = 100.0;
-	viscosity_coeff = 1.0f;
-	upsilon = 1.0f;
-	rho_bar = 1.0f;
-	pres_bar = 1.0f;
+	
 	m = 1.0f;
-	h = 15.0f;
-
-	f_pv.setZero();
-	f_a.setZero();
-	f_c.setZero();
-	f_g.setZero();
-	f_m.setZero();
+	h = 1.0f;
+		
 	// Send color data to GPU
 	glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 	glBufferSubData(GL_ARRAY_BUFFER, 3*index*sizeof(float), 3*sizeof(float), color.data());
@@ -108,10 +100,10 @@ Particle::~Particle()
 
 void Particle::rebirth(int type, float t, const bool *keyToggles)
 {
-	m = 1.0f;
+	//m = 0.01f;
 	alpha = 1.0f;
 	f << 0.0f, 0.0f, 0.0f;
-	x << randFloat(-10.0f, 10.0f), randFloat(-10.0f, 10.0f), randFloat(-10.0f, 10.0f);
+	//x << randFloat(-10.0f, 10.0f), randFloat(-10.0f, 10.0f), randFloat(-10.0f, 10.0f);
 	type = type;
 	if(type == 2) {
 		// Red target
@@ -125,16 +117,20 @@ void Particle::rebirth(int type, float t, const bool *keyToggles)
 		lifespan = 5000.0f;
 	} else if(type == 1){
 		// White boids
-		color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
+		//color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
+		color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
 		// Send color data to GPU
 		glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 		glBufferSubData(GL_ARRAY_BUFFER, 3 * idx * sizeof(float), 3 * sizeof(float), color.data());
 
 		d = randFloat(0.0f, 0.0f);
-		x << randFloat(-1.0f, 1.0f), randFloat(-1.0f, 1.0f), randFloat(-1.0f, 1.0f);	
-		v << randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f);
-		Vector3f dir(0.0f, 1.0f, 0.0f);
-		v = (v + dir)*0.1;
+		//x << randFloat(-10.0f, 10.0f), randFloat(0.0f, 10.0f), 0.0f;//randFloat(0.0f, 0.1f)
+		//x = x / 10.0f;
+		//x(1) += 0.2f;
+		//v << randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f);
+		//Vector3f dir(0.0f, 1.0f, 0.0f);
+		//v = (v + dir)*0.1;
+		v.setZero();
 		lifespan = 5000.0f;
 		
 	}else if(type == 3){
@@ -142,209 +138,13 @@ void Particle::rebirth(int type, float t, const bool *keyToggles)
 		glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 		glBufferSubData(GL_ARRAY_BUFFER, 3 * idx * sizeof(float), 3 * sizeof(float), color.data());
 		d = randFloat(0.0f, 0.0f);
-		x << randFloat(-1.5f, 1.5f), randFloat(-1.5f, 1.5f), randFloat(-1.5f, 1.5f);
+		x << randFloat(0.0f, 1.0f), randFloat(0.0f, 1.0f), randFloat(-1.5f, 1.5f);
 		v << randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f), randFloat(-0.2f, 0.2f);
 		Vector3f dir(0.0f, 1.0f, 0.0f);
 		v = (v + dir)*0.1;
 		lifespan = 5000.0f;
 	}
 	tEnd = t + lifespan;
-}
-
-float Particle::computeViscosity(const shared_ptr<Particle> &particle) {
-	Vector3f rab = x - particle->x;
-	Vector3f vab = v - particle->v;
-	float vr = rab.dot(vab);
-
-	float S;
-	float gamma = viscosity_coeff * h / (rho + particle->rho);
-	if (vr < 0.0) {
-		S = -gamma * vr / (pow(rab.norm(), 2) + epsilon * pow(h, 2));
-	}
-	else {
-		S = 0.0f;
-	}
-
-	return S;
-}
-
-float Particle::computePressure(const shared_ptr<Particle> &particle) {
-	float S;
-	S = pres / pow(rho, 2) + particle->pres / pow(particle->rho, 2);
-	return S;
-}
-
-float Particle::computeWeight(const shared_ptr<Particle> &particle) {
-	float w;
-	float r = (x - particle->x).norm();
-	if (r / h < 1.0) {
-		w = pow((1.0 - r / h), 3) * 10.0 / (pow(h, 2) * PI_F);
-	}
-	else {
-		w = 0.0f;
-	}
-	return w;
-}
-
-Vector3f Particle::computeGradWeight(const shared_ptr<Particle> &particle) {
-	Vector3f gw;
-	gw.setZero();
-
-	float r = (x - particle->x).norm();
-	if (r / h < 1.0f) {
-		gw = -pow((1.0f - r / h), 2)* 30.0f / (PI_F * pow(h, 3)) * (x - particle->x).normalized();
-	}
-	return gw;
-}
-
-
-
-
-void Particle::findNeighbors(const vector< shared_ptr<Particle> > &particles) {
-	Vector3f dist;
-	dist.setZero();
-	float distThresh = 1.0;
-	
-	for (int i = 0; i < particles.size(); i++) {
-		int num_neighbors = 0;
-		for (int j = 0; j < particles.size(); j++) {
-			if (i != j) {
-				dist = particles[j]->x - particles[i]->x;
-				if (dist.norm() < distThresh) {
-					particles[i]->neighbourList[num_neighbors] = j;
-					num_neighbors++;
-				}
-			}
-		}
-		particles[i]->num_neighbors = num_neighbors;
-		particles[i]->f.setZero();
-	}
-}
-
-void Particle::updateDensity(const vector< shared_ptr<Particle> > &particles) {
-
-	for (int i = 0; i < particles.size(); i++) {
-		float density = 0.0f;
-		auto pa = particles[i];
-
-		if (pa->num_neighbors != 0) {
-			for (int j = 0; j < pa->num_neighbors; j++) {
-				auto pb = particles[pa->neighbourList[j]];  // jth neighbor
-				density += pb->m * pa->computeWeight(pb);   // get weight
-			}
-		}
-		pa->rho = density;
-		//cout << "density: " << density << endl;
-		pa->pres = pa->pres_bar * (pow(pa->rho / pa->rho_bar, pa->upsilon) - 1); // update pressure
-	}
-}
-
-void Particle::updateSPHForces(const vector< shared_ptr<Particle> > &particles) {
-
-	for (int i = 0; i < particles.size(); i++) {
-		Vector3f f_pv;
-		f_pv.setZero();
-
-		auto pa = particles[i];
-
-		if (pa->num_neighbors != 0) {
-			for (int j = 0; j < pa->num_neighbors; j++) {
-				auto pb = particles[pa->neighbourList[j]];  // jth neighbor
-				float Sab = pa->computePressure(pb) + pa->computeViscosity(pb);
-				//cout << "Sab: " << Sab << endl;
-				f_pv += pb->m * Sab * pa->computeGradWeight(pb);   // get weight
-			}
-		}
-		if (f_pv.norm() < 10.0f) {
-			pa->f_pv = f_pv;
-		}
-		else {
-			cout << "f too large" << endl;
-			pa->f_pv.setZero();
-		}
-		
-	}
-
-}
-
-
-// flocking system
-void Particle::matchVelocity(const vector< shared_ptr<Particle> > &particles) {
-	Vector3f v_nearest;
-	float k_v = 0.02;
-	float min_dist = 1000.0;
-	int idx_nearest = -1;
-	float dist = 0.0;
-	for (int i = 0; i < particles.size(); i++) {
-		v_nearest.setZero();
-		particles[i]->f_m.setZero();
-		if (particles[i]->num_neighbors != 0) {
-			for (int k = 0; k < particles[i]->num_neighbors; k++) {
-				dist = (particles[particles[i]->neighbourList[k]]->x - particles[i]->x).norm();
-				if (dist < min_dist) {
-					min_dist = dist;
-					idx_nearest = k;
-				}
-			}
-			v_nearest = particles[particles[i]->neighbourList[idx_nearest]]->v;
-			particles[i]->f_m = k_v * (v_nearest - particles[i]->v);
-		}
-	}
-}
-
-void Particle::avoidCollision(const vector< shared_ptr<Particle> > &particles) {
-	float dist;
-	float min_dist = 0.1; 
-	float k_a = 0.1;
-	for (int i = 0; i < particles.size(); i++) {
-		particles[i]->f_a.setZero();
-		if (particles[i]->num_neighbors != 0) {
-			for (int k = 0; k < particles[i]->num_neighbors; k++) {
-				dist = (particles[particles[i]->neighbourList[k]]->x - particles[i]->x).norm();
-				if (dist < min_dist && dist != 0.0) {
-					float dist_l = 0.0;
-					if (dist < 0.001) {
-						dist_l= 0.001;
-					}
-					else {
-						dist_l = dist;
-					}
-					particles[i]->f_a -= dist_l * k_a * (particles[particles[i]->neighbourList[k]]->x - particles[i]->x)/dist;
-				}
-			}
-			particles[i]->f_a /= particles[i]->num_neighbors;
-		}
-	}
-}
-
-void Particle::seekGoal(const Vector3f goal_pos, const vector< shared_ptr<Particle> > &particles) {
-	Vector3f force;
-	force.setZero();
-	float k_g = 0.005;
-	for (int i = 0; i < particles.size(); i++) {
-		particles[i]->f_g.setZero();
-		force = (goal_pos - particles[i]->x) * k_g;
-		particles[i]->f_g = force;
-	}
-}
-
-void Particle::centering(const vector< shared_ptr<Particle> > &particles) {
-	Vector3f center;
-	double k_c = 0.01;
-	// Compute the local center of boids
-	for (int i = 0; i < particles.size(); i++) {
-		center.setZero();
-		particles[i]->f_c.setZero();
-
-		for (int k = 0; k < particles[i]->num_neighbors; k++) {
-			center += particles[particles[i]->neighbourList[k]]->x;
-		}
-		if (particles[i]->num_neighbors != 0) {
-			center = center / particles[i]->num_neighbors;
-		}
-		// Generate acceleration
-		particles[i]->f_c = k_c * (center - particles[i]->x);
-	}
 }
 
 
@@ -363,22 +163,6 @@ void Particle::step(float t, float h, const Vector3f &g, const bool *keyToggles)
 	Vector3f v_old = v;
 	Vector3f x_old = x;
 	f.setZero();
-	
-	/*if (f_a.norm() > 0.000001) {
-		f += f_a/100.0;
-		if (f_g.norm() > 1.0 / 20.0f * f_a.norm()) {
-			f += 1.0 / 20.0f * f_g / f_g.norm() * f_a.norm();
-		}
-		else {
-			f += f_g;
-		}
-	}else {
-		f += 2.0 * f_g+ f_m/10.0 + f_c/2.0 ;
-	}*/
-
-	//f += f_pv;
-	//cout << "f: " << f_pv << endl;
-
 	f += m * g;
 
 	// Potential field with a sphere centered in the origin
@@ -406,9 +190,31 @@ void Particle::step(float t, float h, const Vector3f &g, const bool *keyToggles)
 	if( keyToggles[(unsigned)'f']) {
 		
 		if(x(1)<=0.0){
-			v(1)=-v(1);
+			//v(1)=-v(1);
+			v(1) = 0.0;
 			x(1)=0.0;
 		}	
+		if (x(0) <= -20.0) {
+			v(0) = -v(0);
+			x(0) = -20.0;
+		}
+		if (x(0) >= 20.0) {
+			v(0) = -v(0);
+			x(0) = 20.0;
+		}
+		if (x(2) <= -0.0) {
+			v(2) = -v(2);
+			x(2) = -0.0;
+
+		}
+		if (x(2) >= 0.1) {
+			v(2) = -v(2);
+			x(2) = 0.1;
+		}
+		if (x(1) >= 20.0) {
+			v(1) = -v(1);
+			x(1) = 20.0;
+		}
 	}
 
 	// Apply polygon collision
@@ -489,7 +295,6 @@ void Particle::init(int n)
 	colBuf.resize(3*n);
 	alpBuf.resize(n);
 	scaBuf.resize(n);
-	neighbourList.resize(n);
 
 	for(int i = 0; i < n; ++i) {
 		posBuf[3*i+0] = 0.0f;
@@ -500,7 +305,6 @@ void Particle::init(int n)
 		colBuf[3*i+2] = 1.0f;
 		alpBuf[i] = 1.0f;
 		scaBuf[i] = 1.0f;
-		neighbourList[i] = -1; 
 	}
 
 	// Generate buffer IDs
