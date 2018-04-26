@@ -41,15 +41,15 @@ public:
 	static float randFloat(float l, float h);
 	static Eigen::Vector3f limitValue(Eigen::Vector3f vec, float maxVal);
 	Eigen::Map<Eigen::Vector3f> x; // position (mapped to a location in posBuf)
-
+float &alpha;             // mapped to a location in alpBuf
+float &scale;                      // size (mapped to a location in scaBuf)
 private:
 	// Properties that are fixed
 	Eigen::Map<Eigen::Vector3f> color; // color (mapped to a location in colBuf)
-	float &scale;                      // size (mapped to a location in scaBuf)
+	
 	int idx;
 	
-	float &alpha;             // mapped to a location in alpBuf
-
+	
 	// Static, shared by all particles
 	static std::vector<float> posBuf;
 	static std::vector<float> colBuf;

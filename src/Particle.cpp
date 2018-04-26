@@ -79,7 +79,7 @@ Particle::Particle(int index) :
 	// Random fixed properties
 	color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
 	//scale = randFloat(0.2f, 0.3f);
-	scale = 0.3f;
+	scale = 0.2f;
 	lifespan = 100.0;
 	
 	m = 1.0f;
@@ -108,17 +108,18 @@ void Particle::rebirth(int type, float t, const bool *keyToggles)
 	if(type == 2) {
 		// Red target
 		color << 1.0f, 0.0f, 0.0f;
+		m = 1.2f;
 		// Send color data to GPU
 		glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 		glBufferSubData(GL_ARRAY_BUFFER, 3 * idx * sizeof(float), 3 * sizeof(float), color.data());
 		d = randFloat(0.0f, 0.0f);
-		x << 0.6f, 0.0f, 0.0f;
-		v << 0.0f, 0.1f, 0.0f;
+		//x << 0.6f, 0.0f, 0.0f;
+		//v << 0.0f, 0.1f, 0.0f;
 		lifespan = 5000.0f;
 	} else if(type == 1){
 		// White boids
-		//color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
-		color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
+		color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
+		//color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
 		// Send color data to GPU
 		glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 		glBufferSubData(GL_ARRAY_BUFFER, 3 * idx * sizeof(float), 3 * sizeof(float), color.data());

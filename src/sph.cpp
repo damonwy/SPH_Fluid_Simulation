@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 
+#include <omp.h>
 using namespace std;
 using namespace Eigen;
 const float  PI_F = 3.14159265358979f;
@@ -47,8 +48,9 @@ SPH::SPH(int n,
 		auto p = make_shared<Particle>(i);
 		p->x << randFloat(l + 1.0f, u - 1.0f), randFloat(l + 1.0f, u - 1.0f), randFloat(l + 1.0f, u - 1.0f);
 		p->h = h;
-		particles.push_back(p);
-		p->rebirth(1, 0.0f, keyToggles);
+		particles.push_back(p);p->rebirth(1, 0.0f, keyToggles);
+	
+		
 	}
 
 	updateOVboundary(llc, urc);
@@ -118,6 +120,7 @@ void SPH::updateOVboundary(Vector3f _llc, Vector3f _urc) {
 }
 
 void SPH::updateOVindices() {
+
 	for (int i = 0; i < (int)particles.size(); i++) {
 		auto pa = particles[i];
 		int ix, iy, iz;
@@ -172,7 +175,7 @@ void SPH::updateForces() {
 			force -= pb->m * (SP + SV) * gw;
 		}
 		force *= 1e-3;
-		///cout << "f:" << force.norm() << endl;
+		//cout << "f:" << force.norm() << endl;
 		// add gravity
 		force += grav;
 		pa->f = force;
@@ -208,6 +211,16 @@ void SPH::findNeighbors(shared_ptr<Particle> pa, vector<size_t> *neighbor_indice
 	|	|
 	-------------
 	*/
+if (r < nx && u <  ny && in >= 0) {
+		index = r + nx * u + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (l >= 0 && u < ny && out < nz) {
+		index = l + nx * u + nx * ny * out;
+		nearby_grids.push_back((size_t)index);
+	}
+
 
 	// first check the eight corners
 	if (l >= 0 && u < ny && in >= 0) {
@@ -225,15 +238,7 @@ void SPH::findNeighbors(shared_ptr<Particle> pa, vector<size_t> *neighbor_indice
 		nearby_grids.push_back((size_t)index);
 	}
 
-	if (r < nx && u <  ny && in >= 0) {
-		index = r + nx * u + nx * ny * in;
-		nearby_grids.push_back((size_t)index);
-	}
-
-	if (l >= 0 && u < ny && out < nz) {
-		index = l + nx * u + nx * ny * out;
-		nearby_grids.push_back((size_t)index);
-	}
+	
 
 	if (l >= 0 && d >= 0 && out < nz) {
 		index = l + nx * d + nx * ny * out;
@@ -249,28 +254,96 @@ void SPH::findNeighbors(shared_ptr<Particle> pa, vector<size_t> *neighbor_indice
 		index = r + nx * u + nx * ny * out;
 		nearby_grids.push_back((size_t)index);
 	}
-
-	// then check four 12 grids
-	//TODO
-	/*if (u <  ny ) {
-		index = ix + nx * u + nx * ny * iz;
+// then check four 12 grids
+	if (r < nx && out < nz) {
+		index = r + nx * iy + nx * ny * out;
 		nearby_grids.push_back((size_t)index);
 	}
 
-	if (r < nx) {
-		index = r + nx * iy;
+	if (r < nx && u <  ny ) {
+		index = r + nx * u + nx * ny * iz;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (r < nx && in >= 0) {
+		index = r + nx * iy + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (r < nx && d >= 0) {
+		index = r + nx * d + nx * ny * iz;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (u < ny && in >= 0) {
+		index = ix + nx * u + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (u < ny && out < nz) {
+		index = ix + nx *u + nx * ny * out;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (d >= 0 && in >= 0) {
+		index = ix + nx * d + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (d >= 0 && out < nz) {
+		index = ix + nx * d + nx * ny * out;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (l >= 0 && out < nz) {
+		index = l + nx * iy + nx * ny * out;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (l >= 0 && in >= 0) {
+		index = l + nx * iy + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (l >= 0 && d >= 0) {
+		index = l + nx * d + nx * ny * iz;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (l >= 0 &&u < ny) {
+		index = l + nx * u + nx * ny * iz;
 		nearby_grids.push_back((size_t)index);
 	}
 
 	if (l >= 0) {
-		index = l + nx * iy;
+		index = l + nx * iy + nx * ny * iz;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (r<nx) {
+		index = r + nx * iy + nx * ny * iz;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (u < ny) {
+		index = ix + nx * u + nx * ny * iz;
 		nearby_grids.push_back((size_t)index);
 	}
 
 	if (d >= 0) {
-		index = ix + nx * d;
+		index =ix + nx * d + nx * ny * iz;
 		nearby_grids.push_back((size_t)index);
-	}*/
+	}
+
+	if (in >= 0) {
+		index = ix + nx * iy + nx * ny * in;
+		nearby_grids.push_back((size_t)index);
+	}
+
+	if (out<nz) {
+		index = ix + nx * iy + nx * ny * out;
+		nearby_grids.push_back((size_t)index);
+	}
 
 	nearby_grids.push_back((size_t)grid_id);
 
@@ -289,6 +362,10 @@ void SPH::checkBoundary(float wallsticky) {
 
 	for (int i = 0; i < (int)particles.size(); i++) {
 		auto pa = particles[i];
+		if (pa->x(1) > URC(1) / 2.0) {
+			pa->alpha = 0.3f;
+			pa->scale = 0.1f;
+		}
 
 		// modify the velocity and position of particles when out of boundary
 		if (pa->x(0) < LLC(0)) {
@@ -370,7 +447,7 @@ void SPH::euler(float dt) {
 	updateDensity();
 	//cout << "den:" << particles[100]->den << endl;
 	updateForces();
-
+#pragma omp parallel for
 	for (int i = 0; i < (int)particles.size(); i++) {
 		auto pa = particles[i];
 		pa->v += pa->f * dt;
@@ -390,7 +467,7 @@ void SPH::leapfrog(float _dt) {
 	updateForces();
 
 	_dt = _dt / 2.0f;
-
+#pragma omp parallel for
 	for (int i = 0; i < (int)particles.size(); i++) {
 		auto pa = particles[i];
 		pa->x += pa->v * _dt; // half step
@@ -402,7 +479,7 @@ void SPH::leapfrog(float _dt) {
 
 	updateDensity();
 	updateForces();
-
+#pragma omp parallel for
 	for (int i = 0; i < (int)particles.size(); i++) {
 		auto pa = particles[i];
 		pa->v += pa->f * _dt * 2.0f; // full step

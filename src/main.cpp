@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 
+#include <omp.h>
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -125,10 +126,10 @@ static void init()
 	prog->addUniform("texture0");
 	
 	camera = make_shared<Camera>();
-	camera->setInitDistance(100.0f);
+	camera->setInitDistance(10.0f);
 	
 	texture0 = make_shared<Texture>();
-	texture0->setFilename(RESOURCE_DIR + "alpha.jpg");
+	texture0->setFilename(RESOURCE_DIR + "snow.bmp");//alpha.jpg
 	texture0->init();
 	texture0->setUnit(0);
 	texture0->setWrapModes(GL_REPEAT, GL_REPEAT);
@@ -141,29 +142,27 @@ static void init()
 	//	p->rebirth(1, 0.0f, keyToggles);
 	//}
 	
-	double num_particles = 6000;
+	double num_particles =3000;
 	float init_x = 0.0f;
-	float init_y = 10.0f;
+	float init_y = 4.0f;
 	float h = 0.3f;
-	float eps = 0.0008f;
+	float eps = 0.008f;
 	float vis = 100.0f;
-	float base_density = 1.0f;
+	float base_density = 1.9f;
 	float power = 3.0f;
 	float base_pressure = 5.0f;
 	float dt = 0.1f;
 
 	Eigen::Vector3f window_llc, window_urc;
 	window_llc << 0.0f, 0.0f, 0.0f;
-	window_urc << 15.0f, 15.0f, 15.0f;
+	window_urc << 5.0f, 5.0f, 5.0f;
 
 	sph_demo = make_shared<SPH>(num_particles, init_x, init_y, h, eps, vis, base_density, base_pressure, power, dt, keyToggles);
 	sph_demo->LLC = window_llc;
 	sph_demo->URC = window_urc;
 
-	//grav << 0.0f, -0.2f, 0.0f;
 	t = 0.0f;
-	//h = 0.1f;
-	
+
 	GLSL::checkError(GET_FILE_LINE);
 }
 
@@ -271,12 +270,12 @@ void stepParticles()
 
 	if (keyToggles[(unsigned)'h']) {
 		sph_demo->h *= 0.9;
-		cout << "decrease base density to: " << sph_demo->h << endl;
+		cout << "decrease h to: " << sph_demo->h << endl;
 	}
 
 	if (keyToggles[(unsigned)'H']) {
 		sph_demo->h *= 1.0 / 0.9;
-		cout << "increase base density to: " << sph_demo->h << endl;
+		cout << "increase h to: " << sph_demo->h << endl;
 	}
 
 	if (keyToggles[(unsigned)'w']) {
@@ -287,6 +286,45 @@ void stepParticles()
 	if (keyToggles[(unsigned)'W']) {
 		sph_demo->wallsticky *= 1.0 / 0.9;
 		cout << "increase wallsticky to: " << sph_demo->wallsticky << endl;
+	}
+	if (keyToggles[(unsigned)'p']) {
+
+
+		sph_demo->grav *= 0.9f;
+		cout << "- grav" << grav.norm() << endl;
+	}
+	if (keyToggles[(unsigned)'P']) {
+		
+		
+		sph_demo->grav *= 1.0/0.9f;
+		cout << "+ grav" <<grav.norm() << endl;
+	}
+	if (keyToggles[(unsigned)'U']) {
+		float mag = sph_demo->grav.norm();
+		sph_demo->grav << 0.0f, 1.0f, 0.0;
+		sph_demo->grav *= mag;
+		cout << "change grav dir to up "  << endl;
+	}
+
+	if (keyToggles[(unsigned)'Z']) {
+		float mag = sph_demo->grav.norm();
+		sph_demo->grav << 0.0f, -1.0f, 0.0;
+		sph_demo->grav *= mag;
+		cout << "change grav dir to down " << endl;
+	}
+
+	if (keyToggles[(unsigned)'L']) {
+		float mag = sph_demo->grav.norm();
+		sph_demo->grav << -1.0f, 0.0f, 0.0;
+		sph_demo->grav *= mag;
+		cout << "change grav dir to left " << endl;
+	}
+
+	if (keyToggles[(unsigned)'R']) {
+		float mag = sph_demo->grav.norm();
+		sph_demo->grav << 1.0f, 0.0f, 0.0;
+		sph_demo->grav *= mag;
+		cout << "change grav dir to right " << endl;
 	}
 
 	if(keyToggles[(unsigned)' ']) {
