@@ -79,7 +79,7 @@ Particle::Particle(int index) :
 	// Random fixed properties
 	color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
 	//scale = randFloat(0.2f, 0.3f);
-	scale = 0.2f;
+	scale = 0.1f;
 	lifespan = 100.0;
 	
 	m = 1.0f;
@@ -118,8 +118,8 @@ void Particle::rebirth(int type, float t, const bool *keyToggles)
 		lifespan = 5000.0f;
 	} else if(type == 1){
 		// White boids
-		color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
-		//color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
+		//color << randFloat(245.0/255.0f, 1.0f), randFloat(235.0/255.0f, 1.0f), randFloat(200.0/256.0f, 1.0f);
+		color << randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f), randFloat(0.5f, 1.0f);
 		// Send color data to GPU
 		glBindBuffer(GL_ARRAY_BUFFER, colBufID);
 		glBufferSubData(GL_ARRAY_BUFFER, 3 * idx * sizeof(float), 3 * sizeof(float), color.data());
@@ -155,16 +155,31 @@ void Particle::step(float t, float h, const Vector3f &g, const bool *keyToggles)
 		int tp = type;
 		rebirth(tp, t, keyToggles);
 	}
-
+	f.setZero();
 	if(keyToggles[(unsigned)'g']) {
 		// Gravity downwards
 		f += m * g - 1 * v;
 	}
+
+	if (keyToggles[(unsigned)'f']) {
+		// Gravity towards origin
+		f = -15 * m / ((int)(x.dot(x) + 0.01 * 0.01) ^ (3 / 2)) * x;
+	}
+	else {
+		// Gravity downwards
+		f = m * g - 1 * v;
+	}
+
+	if (keyToggles[(unsigned)'r']) {
+		// Potential field with a sphere centered in the origin
+		Vector3f center(2.0f, 0.0f, 2.0f);
+		f -= m * 1000 * (1 / (0.5F - (x - center).norm()))*(x - center) / (x - center).norm();
+	}
 	
 	Vector3f v_old = v;
 	Vector3f x_old = x;
-	f.setZero();
-	f += m * g;
+	//f.setZero();
+	//f += m * g;
 
 	// Potential field with a sphere centered in the origin
 	if (keyToggles[(unsigned)'y']) {

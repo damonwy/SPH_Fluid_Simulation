@@ -1,4 +1,5 @@
 #pragma once
+#include <tetgen.h>
 #include <memory>
 #include <vector>
 
@@ -8,8 +9,10 @@
 #define EIGEN_DONT_ALIGN_STATICALLY
 #include <Eigen/Dense>
 
-
+class MatrixStack;
+class Program;
 class Particle;
+class Node;
 enum Scheme { EL, LF, SIXTH };
 
 class SPH {
@@ -41,12 +44,24 @@ public:
 	float h;
 	float dt;
 	float wallsticky;
+
+	tetgenio in, out;
+	int nTriFaces;
+	int nEdges;
+	int nVerts;
+
+
 	Eigen::Vector3f grav;
 	Scheme update_scheme;
 	std::vector<std::shared_ptr<Particle> > particles;
 	std::vector<std::vector<size_t> > occupancy_volume; // list of nearby particles = occupancy_volume[i]
-
+	std::vector <std::shared_ptr<Node> > nodes;
 	void updateFluid();
+	void init();
+	// Draw
+	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> p)const;
+	void drawAABB()const;
+	bool rayTriangleIntersects(Eigen::Vector3f v1, Eigen::Vector3f v2, Eigen::Vector3f v3, Eigen::Vector3f dir, Eigen::Vector3f pos, Eigen::Vector3f &outpoint);
 
 private:
 	void sixth(float dt);
@@ -72,4 +87,17 @@ private:
 	// helper
 	float randFloat(float l, float h);
 	void updateOVboundary(Eigen::Vector3f _llc, Eigen::Vector3f _urc);
+	void updatePosNor();
+	void computeAABB();
+	Eigen::Vector3f min3, max3, index_min3, index_max3;
+
+	std::vector<unsigned int> eleBuf;
+	std::vector<float> posBuf;
+	std::vector<float> norBuf;
+	std::vector<float> texBuf;
+	unsigned eleBufID;
+	unsigned posBufID;
+	unsigned norBufID;
+	unsigned texBufID;
+
 };

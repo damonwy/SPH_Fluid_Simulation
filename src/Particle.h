@@ -41,6 +41,8 @@ public:
 	static float randFloat(float l, float h);
 	static Eigen::Vector3f limitValue(Eigen::Vector3f vec, float maxVal);
 	Eigen::Map<Eigen::Vector3f> x; // position (mapped to a location in posBuf)
+	Eigen::Vector3f x_old;
+
 float &alpha;             // mapped to a location in alpBuf
 float &scale;                      // size (mapped to a location in scaBuf)
 private:
